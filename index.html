@@ -117,6 +117,7 @@
                                     <label for="keywords" class="block text-sm font-medium text-gray-700">핵심 키워드 (선택)</label>
                                     <input type="text" id="keywords" placeholder="예: 메타버스, AI 융합, 학생 주도" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 sm:text-sm">
                                 </div>
+                                <p id="form-error" class="text-red-500 text-xs italic mt-2 hidden"></p>
                                 <button type="submit" id="generate-btn" class="w-full bg-[#7A9D54] text-white font-bold py-3 px-4 rounded-lg hover:bg-[#6a8a4a] flex items-center justify-center">AI 운영계획서 생성</button>
                             </form>
                         </aside>
@@ -143,15 +144,18 @@
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, getDocs, doc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+        // Your web app's Firebase configuration from your screenshot
         const firebaseConfig = {
-            apiKey: "AIzaSyCG8lr2SJB2fTRn3a_R9oGrOu1nTXZRcN0",
-            authDomain: "test-b6e77.firebaseapp.com",
-            projectId: "test-b6e77",
-            storageBucket: "test-b6e77.appspot.com",
-            messagingSenderId: "243127669342",
-            appId: "1:243127669342:web:43bda7b1f3827610afdacf"
+            apiKey: "AIzaSyDCeJPDQUNi-KmJ9DhkTRIu-9t2PGZCpt0",
+            authDomain: "mansungcoin-c6e06.firebaseapp.com",
+            databaseURL: "https://mansungcoin-c6e06-default-rtdb.firebaseio.com",
+            projectId: "mansungcoin-c6e06",
+            storageBucket: "mansungcoin-c6e06.appspot.com",
+            messagingSenderId: "704809284946",
+            appId: "1:704809284946:web:54e4788586e6c68de1768b"
         };
 
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -189,6 +193,7 @@
         const planTypeSelect = document.getElementById('plan-type');
         const customPlanTypeWrapper = document.getElementById('custom-plan-type-wrapper');
         const customPlanTypeInput = document.getElementById('custom-plan-type');
+        const formError = document.getElementById('form-error');
         
         let statsChartInstance = null;
 
@@ -217,7 +222,8 @@
                     errorMessage = '유효하지 않은 이메일 주소입니다.';
                     break;
                 case 'auth/user-not-found':
-                    errorMessage = '가입되지 않은 이메일입니다.';
+                case 'auth/invalid-credential': // 통합된 오류 코드
+                    errorMessage = '가입되지 않은 이메일이거나 비밀번호가 틀렸습니다.';
                     break;
                 case 'auth/wrong-password':
                     errorMessage = '비밀번호가 틀렸습니다.';
@@ -232,10 +238,13 @@
                     errorMessage = '로그인 팝업이 닫혔습니다.';
                     break;
                 case 'auth/unauthorized-domain':
-                    errorMessage = "로그인이 허용되지 않은 주소입니다. Firebase 콘솔 > Authentication > 설정 > 승인된 도메인에 'googleusercontent.com'을 추가해주세요.";
+                    errorMessage = "로그인이 허용되지 않은 도메인입니다. Firebase 콘솔 > Authentication > 설정 > 승인된 도메인에 'googleusercontent.com'을 추가해주세요.";
+                    break;
+                 case 'auth/identity-toolkit-api-has-not-been-used-in-project':
+                    errorMessage = "Firebase 프로젝트의 인증 API가 활성화되지 않았습니다. Google Cloud 콘솔에서 'Identity Toolkit API'를 활성화해주세요.";
                     break;
                 default:
-                    errorMessage = `로그인에 실패했습니다. (코드: ${error.code})`;
+                    errorMessage = `로그인에 실패했습니다. (${error.code})`;
                     break;
             }
             authError.textContent = errorMessage;
@@ -435,12 +444,15 @@
             e.preventDefault();
             const user = auth.currentUser;
             if (!user) return;
+            
+            formError.classList.add('hidden'); // 에러 메시지 초기화
 
             let planType = planTypeSelect.value;
             if (planType === 'custom') {
                 planType = customPlanTypeInput.value.trim();
                 if (!planType) {
-                    alert('계획서 종류를 입력해주세요.');
+                    formError.textContent = '계획서 종류를 직접 입력해주세요.';
+                    formError.classList.remove('hidden');
                     return;
                 }
             }
@@ -454,7 +466,7 @@
 
             try {
                 const prompt = `당신은 대한민국의 유능한 교사입니다. 다음 조건에 맞춰 '${schoolLevelSelect.value} ${planType}' 초안을 작성해 주세요. 핵심 키워드는 '${document.getElementById('keywords').value || '없음'}' 입니다. 출력 형식은 TITLE: [제목], ### [섹션 제목], 그리고 Markdown 테이블 형식의 세부 계획을 반드시 포함해야 합니다.`;
-                const geminiApiKey = "AIzaSyCmzUO0uhLy34fwtYEO23RGQ_0dqCgveDU";
+                const geminiApiKey = "AIzaSyC7_Gq4LIVVMv0hMD6qSwcTlGJcDSt-KgI";
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
                 const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
                 if (!response.ok) { const err = await response.json(); throw new Error(err.error?.message || 'AI 모델 호출에 실패했습니다.'); }
@@ -522,11 +534,22 @@
         }
         
         copyBtn.addEventListener('click', () => {
-            navigator.clipboard.writeText(generatedContentDiv.innerText).then(() => {
+            const textToCopy = generatedContentDiv.innerText;
+            const textArea = document.createElement('textarea');
+            textArea.value = textToCopy;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
                 copyBtn.textContent = '복사 완료!';
-                setTimeout(() => { copyBtn.textContent = '본문 복사'; }, 2000);
-            });
+            } catch (err) {
+                console.error('클립보드 복사 실패:', err);
+                copyBtn.textContent = '복사 실패';
+            }
+            document.body.removeChild(textArea);
+            setTimeout(() => { copyBtn.textContent = '본문 복사'; }, 2000);
         });
+
 
         // --- INITIALIZATION ---
         populateSelects();
