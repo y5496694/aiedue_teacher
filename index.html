@@ -142,26 +142,43 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, getDocs, doc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-        // Your web app's Firebase configuration from your screenshot
+        import {
+          getAuth,
+          createUserWithEmailAndPassword,
+          signInWithEmailAndPassword,
+          onAuthStateChanged,
+          signOut,
+          GoogleAuthProvider,
+          signInWithPopup
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import {
+          getFirestore,
+          collection,
+          addDoc,
+          query,
+          getDocs,
+          doc,
+          getDoc,
+          deleteDoc
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        
+        // Firebase config (본인 프로젝트 정보로 교체)
         const firebaseConfig = {
-            apiKey: "AIzaSyDCeJPDQUNi-KmJ9DhkTRIu-9t2PGZCpt0",
-            authDomain: "mansungcoin-c6e06.firebaseapp.com",
-            databaseURL: "https://mansungcoin-c6e06-default-rtdb.firebaseio.com",
-            projectId: "mansungcoin-c6e06",
-            storageBucket: "mansungcoin-c6e06.appspot.com",
-            messagingSenderId: "704809284946",
-            appId: "1:704809284946:web:54e4788586e6c68de1768b"
+          apiKey: "AIzaSyDCeJPDQUNi-KmJ9DhkTRIu-9t2PGZCpt0",
+          authDomain: "mansungcoin-c6e06.firebaseapp.com",
+          databaseURL: "https://mansungcoin-c6e06-default-rtdb.firebaseio.com",
+          projectId: "mansungcoin-c6e06",
+          storageBucket: "mansungcoin-c6e06.appspot.com",
+          messagingSenderId: "704809284946",
+          appId: "1:704809284946:web:54e4788586e6c68de1768b"
         };
-
-        // Initialize Firebase
+        
+        // Firebase 초기화
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-
-        // Global DOM Elements
+        
+        // DOM 요소
         const authView = document.getElementById('auth-view');
         const mainAppView = document.getElementById('main-app-view');
         const emailInput = document.getElementById('email');
@@ -195,394 +212,478 @@
         const customPlanTypeWrapper = document.getElementById('custom-plan-type-wrapper');
         const customPlanTypeInput = document.getElementById('custom-plan-type');
         const formError = document.getElementById('form-error');
+        const includeBudgetCheckbox = document.getElementById('include-budget');
         
         let statsChartInstance = null;
-        const includeBudgetCheckbox = document.getElementById('include-budget');
-
-        // --- AUTHENTICATION ---
+        
+        // -------------------------
+        // 인증 관련 처리
+        // -------------------------
         onAuthStateChanged(auth, user => {
-            if (user) {
-                authView.classList.add('hidden');
-                mainAppView.classList.remove('hidden');
-                mainAppView.classList.add('flex');
-                const userEmail = user.displayName || user.email;
-                userEmailSpan.textContent = userEmail;
-                dashboardUserEmailSpan.textContent = userEmail;
-                switchView(window.location.hash.substring(1) || 'dashboard');
-            } else {
-                authView.classList.remove('hidden');
-                mainAppView.classList.add('hidden');
-                mainAppView.classList.remove('flex');
-            }
+          if (user) {
+            authView.classList.add('hidden');
+            mainAppView.classList.remove('hidden');
+            mainAppView.classList.add('flex');
+            const userEmail = user.displayName || user.email;
+            userEmailSpan.textContent = userEmail;
+            dashboardUserEmailSpan.textContent = userEmail;
+            switchView(window.location.hash.substring(1) || 'dashboard');
+            loadAndDisplayPlans();
+          } else {
+            authView.classList.remove('hidden');
+            mainAppView.classList.add('hidden');
+            mainAppView.classList.remove('flex');
+          }
         });
-
+        
         const handleAuthError = (error) => {
-            console.error("Authentication Error:", error);
-            let errorMessage = "오류가 발생했습니다. 다시 시도해주세요.";
-            switch (error.code) {
-                case 'auth/invalid-email':
-                    errorMessage = '유효하지 않은 이메일 주소입니다.';
-                    break;
-                case 'auth/user-not-found':
-                case 'auth/invalid-credential': // 통합된 오류 코드
-                    errorMessage = '가입되지 않은 이메일이거나 비밀번호가 틀렸습니다.';
-                    break;
-                case 'auth/wrong-password':
-                    errorMessage = '비밀번호가 틀렸습니다.';
-                    break;
-                case 'auth/email-already-in-use':
-                    errorMessage = '이미 사용 중인 이메일입니다.';
-                    break;
-                case 'auth/weak-password':
-                    errorMessage = '비밀번호는 6자 이상이어야 합니다.';
-                    break;
-                case 'auth/popup-closed-by-user':
-                    errorMessage = '로그인 팝업이 닫혔습니다.';
-                    break;
-                case 'auth/unauthorized-domain':
-                    errorMessage = "로그인이 허용되지 않은 도메인입니다. Firebase 콘솔 > Authentication > 설정 > 승인된 도메인에 'googleusercontent.com'을 추가해주세요.";
-                    break;
-                 case 'auth/identity-toolkit-api-has-not-been-used-in-project':
-                    errorMessage = "Firebase 프로젝트의 인증 API가 활성화되지 않았습니다. Google Cloud 콘솔에서 'Identity Toolkit API'를 활성화해주세요.";
-                    break;
-                default:
-                    errorMessage = `로그인에 실패했습니다. (${error.code})`;
-                    break;
-            }
-            authError.textContent = errorMessage;
-            authError.classList.remove('hidden');
+          console.error("Authentication Error:", error);
+          let errorMessage = "오류가 발생했습니다. 다시 시도해주세요.";
+          switch (error.code) {
+            case 'auth/invalid-email':
+              errorMessage = '유효하지 않은 이메일 주소입니다.';
+              break;
+            case 'auth/user-not-found':
+            case 'auth/invalid-credential':
+              errorMessage = '가입되지 않은 이메일이거나 비밀번호가 틀렸습니다.';
+              break;
+            case 'auth/wrong-password':
+              errorMessage = '비밀번호가 틀렸습니다.';
+              break;
+            case 'auth/email-already-in-use':
+              errorMessage = '이미 사용 중인 이메일입니다.';
+              break;
+            case 'auth/weak-password':
+              errorMessage = '비밀번호는 6자 이상이어야 합니다.';
+              break;
+            case 'auth/popup-closed-by-user':
+              errorMessage = '로그인 팝업이 닫혔습니다.';
+              break;
+            case 'auth/unauthorized-domain':
+              errorMessage = "로그인이 허용되지 않은 도메인입니다. Firebase 콘솔 > Authentication > 설정 > 승인된 도메인에 'googleusercontent.com'을 추가해주세요.";
+              break;
+            case 'auth/identity-toolkit-api-has-not-been-used-in-project':
+              errorMessage = "Firebase 프로젝트의 인증 API가 활성화되지 않았습니다. Google Cloud 콘솔에서 'Identity Toolkit API'를 활성화해주세요.";
+              break;
+            default:
+              errorMessage = `로그인에 실패했습니다. (${error.code})`;
+              break;
+          }
+          authError.textContent = errorMessage;
+          authError.classList.remove('hidden');
         };
         
         signupBtn.addEventListener('click', async () => {
-             authError.classList.add('hidden');
-            try { await createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value); } catch (error) { handleAuthError(error); }
+          authError.classList.add('hidden');
+          try {
+            await createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+          } catch (error) {
+            handleAuthError(error);
+          }
         });
-
+        
         loginBtn.addEventListener('click', async () => {
-            authError.classList.add('hidden');
-            try { await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value); } catch (error) { handleAuthError(error); }
+          authError.classList.add('hidden');
+          try {
+            await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+          } catch (error) {
+            handleAuthError(error);
+          }
         });
-
+        
         googleLoginBtn.addEventListener('click', async () => {
-            authError.classList.add('hidden');
-            const provider = new GoogleAuthProvider();
-            try {
-                await signInWithPopup(auth, provider);
-            } catch (error) {
-                handleAuthError(error);
-            }
+          authError.classList.add('hidden');
+          const provider = new GoogleAuthProvider();
+          try {
+            await signInWithPopup(auth, provider);
+          } catch (error) {
+            handleAuthError(error);
+          }
         });
-
+        
         logoutBtn.addEventListener('click', () => signOut(auth));
-
-        // --- APP NAVIGATION ---
+        
+        // -------------------------
+        // 뷰 전환 관련 처리
+        // -------------------------
         const switchView = (view) => {
-            const targetView = view || 'dashboard';
-            dashboardView.classList.toggle('hidden', targetView !== 'dashboard');
-            generatorView.classList.toggle('hidden', targetView !== 'generator');
-            navDashboard.classList.toggle('active', targetView === 'dashboard');
-            navGenerator.classList.toggle('active', targetView === 'generator');
-            window.location.hash = targetView;
-            if (targetView === 'dashboard') loadAndDisplayPlans();
+          const targetView = view || 'dashboard';
+          dashboardView.classList.toggle('hidden', targetView !== 'dashboard');
+          generatorView.classList.toggle('hidden', targetView !== 'generator');
+          navDashboard.classList.toggle('active', targetView === 'dashboard');
+          navGenerator.classList.toggle('active', targetView === 'generator');
+          window.location.hash = targetView;
+          if (targetView === 'dashboard') {
+            loadAndDisplayPlans();
+          }
         };
-
-        navDashboard.addEventListener('click', (e) => { e.preventDefault(); switchView('dashboard'); });
-        navGenerator.addEventListener('click', (e) => { e.preventDefault(); switchView('generator'); });
+        
+        navDashboard.addEventListener('click', (e) => {
+          e.preventDefault();
+          switchView('dashboard');
+        });
+        navGenerator.addEventListener('click', (e) => {
+          e.preventDefault();
+          switchView('generator');
+        });
         goToGeneratorBtn.addEventListener('click', () => switchView('generator'));
-
-        // --- CHART LOGIC ---
+        
+        // -------------------------
+        // 통계 차트 렌더링
+        // -------------------------
         const updateStatsChart = (plans) => {
-            const statsCanvas = document.getElementById('statsChart');
-            const chartContainer = document.getElementById('stats-chart-container');
-            const ctx = statsCanvas.getContext('2d');
-
-            if (statsChartInstance) {
-                statsChartInstance.destroy();
-                statsChartInstance = null;
+          const statsCanvas = document.getElementById('statsChart');
+          const chartContainer = document.getElementById('stats-chart-container');
+          const ctx = statsCanvas.getContext('2d');
+        
+          if (statsChartInstance) {
+            statsChartInstance.destroy();
+            statsChartInstance = null;
+          }
+      
+          const existingMessage = chartContainer.querySelector('.no-data-message');
+          if (existingMessage) existingMessage.remove();
+          statsCanvas.style.display = 'block';
+      
+          if (!plans || plans.length === 0) {
+            statsCanvas.style.display = 'none';
+            const noDataMessage = document.createElement('div');
+            noDataMessage.className = 'no-data-message text-center text-gray-500 flex items-center justify-center h-full';
+            noDataMessage.textContent = '생성된 계획서 없음';
+            chartContainer.appendChild(noDataMessage);
+            return;
+          }
+      
+          const standardTypes = [
+            '학교폭력 예방 교육 계획',
+            '진로 체험 활동 계획',
+            '디지털 리터러시 교육 계획',
+            '기초학력 향상 지원 계획',
+            '다문화 교육 활동 계획'
+          ];
+          const stats = { 기타: 0 };
+          standardTypes.forEach(t => stats[t] = 0);
+      
+          plans.forEach(plan => {
+            if (standardTypes.includes(plan.planType)) {
+              stats[plan.planType]++;
+            } else {
+              stats['기타']++;
             }
-            
-            const existingMessage = chartContainer.querySelector('.no-data-message');
-            if (existingMessage) existingMessage.remove();
-            statsCanvas.style.display = 'block';
-
-            if (!plans || plans.length === 0) {
-                statsCanvas.style.display = 'none';
-                const noDataMessage = document.createElement('div');
-                noDataMessage.className = 'no-data-message text-center text-gray-500 flex items-center justify-center h-full';
-                noDataMessage.textContent = '생성된 계획서 없음';
-                chartContainer.appendChild(noDataMessage);
-                return;
+          });
+      
+          const chartData = Object.values(stats).filter(count => count > 0);
+          const chartLabels = Object.keys(stats).filter(type => stats[type] > 0);
+      
+          const shortLabels = chartLabels.map(label => {
+            if (label === '기타') return '기타';
+            return label.split(' ')[0];
+          });
+      
+          statsChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+              labels: shortLabels,
+              datasets: [{
+                label: '계획서 종류',
+                data: chartData,
+                backgroundColor: ['#7A9D54', '#A8C292', '#E0A75E', '#F1DDBF', '#D4A5A5', '#8B9A46'],
+                hoverOffset: 4
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                  labels: { padding: 15, font: { family: "'Noto Sans KR', sans-serif" } }
+                }
+              }
             }
-
-            const standardTypes = ['학교폭력 예방 교육 계획', '진로 체험 활동 계획', '디지털 리터러시 교육 계획', '기초학력 향상 지원 계획', '다문화 교육 활동 계획'];
-            const stats = { '기타': 0 };
-            standardTypes.forEach(t => stats[t] = 0);
-
-            plans.forEach(plan => {
-                if (standardTypes.includes(plan.planType)) {
-                    stats[plan.planType]++;
-                } else {
-                    stats['기타']++;
-                }
-            });
-
-            const chartData = Object.values(stats).filter(count => count > 0);
-            const chartLabels = Object.keys(stats).filter(type => stats[type] > 0);
-            
-            const shortLabels = chartLabels.map(label => {
-                if(label === '기타') return '기타';
-                return label.split(' ')[0];
-            });
-
-            statsChartInstance = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: shortLabels,
-                    datasets: [{
-                        label: '계획서 종류',
-                        data: chartData,
-                        backgroundColor: ['#7A9D54', '#A8C292', '#E0A75E', '#F1DDBF', '#D4A5A5', '#8B9A46'],
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { padding: 15, font: { family: "'Noto Sans KR', sans-serif" } } } }
-                }
-            });
+          });
         };
-
-        // --- FIRESTORE & DATA HANDLING ---
+        
+        // -------------------------
+        // Firestore 로드 및 UI 렌더링
+        // -------------------------
         const loadAndDisplayPlans = async () => {
-            const user = auth.currentUser;
-            if (!user) return;
-            
-            const plansCollectionRef = collection(db, "users", user.uid, "plans");
-            const q = query(plansCollectionRef);
-            
-            try {
-                const querySnapshot = await getDocs(q);
-                const plans = [];
-                querySnapshot.forEach((doc) => {
-                    plans.push({ id: doc.id, ...doc.data() });
-                });
-
-                plans.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
-                updateStatsChart(plans);
-
-                recentPlansList.innerHTML = '';
-                if (plans.length === 0) {
-                    recentPlansList.innerHTML = `<p class="text-gray-500 text-center py-4">아직 생성된 계획서가 없습니다.</p>`;
-                    return;
-                }
-
-                const recent5Plans = plans.slice(0, 5);
-                recent5Plans.forEach((plan) => {
-                    const planElement = document.createElement('div');
-                    planElement.className = 'p-4 border rounded-md hover:bg-gray-50 transition-colors flex justify-between items-center';
-                    planElement.innerHTML = `
-                        <div>
-                            <p class="font-semibold">${plan.title}</p>
-                            <p class="text-sm text-gray-500">생성일: ${new Date(plan.createdAt.toDate()).toLocaleDateString()}</p>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <button class="view-plan-btn text-sm font-medium text-blue-600 hover:underline" data-id="${plan.id}">보기</button>
-                            <button class="delete-plan-btn text-sm font-medium text-red-600 hover:underline" data-id="${plan.id}">삭제</button>
-                        </div>
-                    `;
-                    recentPlansList.appendChild(planElement);
-                });
-
-                document.querySelectorAll('.view-plan-btn').forEach(button => {
-                    button.addEventListener('click', async (e) => {
-                        const user = auth.currentUser;
-                        if (!user) return;
-                        const docRef = doc(db, "users", user.uid, "plans", e.target.dataset.id);
-                        const docSnap = await getDoc(docRef);
-                        if (docSnap.exists()) {
-                            const planToView = docSnap.data();
-                            switchView('generator');
-                            displayContent(planToView.rawContent, planToView.title);
-                            outputPanel.scrollIntoView({ behavior: 'smooth' });
-                        }
-                    });
-                });
-                
-                document.querySelectorAll('.delete-plan-btn').forEach(button => {
-                    button.addEventListener('click', async (e) => {
-                        const user = auth.currentUser;
-                        if (!user) return;
-                        try {
-                            const buttonEl = e.currentTarget;
-                            buttonEl.disabled = true;
-                            await deleteDoc(doc(db, "users", user.uid, "plans", buttonEl.dataset.id));
-                            loadAndDisplayPlans();
-                        } catch (error) {
-                            console.error("Error deleting plan:", error);
-                        }
-                    });
-                });
-            } catch (error) {
-                console.error("Error loading plans:", error);
-                recentPlansList.innerHTML = `<p class="text-red-500 text-center py-4">계획서를 불러오는 중 오류가 발생했습니다.</p>`;
-                updateStatsChart([]);
-            }
-        };
-
-        // --- GENERATOR LOGIC ---
-        const populateSelects = () => {
-            const schoolLevels = ['초등학교', '중학교', '고등학교'];
-            const planTypes = ['학교폭력 예방 교육 계획', '진로 체험 활동 계획', '디지털 리터러시 교육 계획', '기초학력 향상 지원 계획', '다문화 교육 활동 계획', '직접 입력'];
-            
-            schoolLevelSelect.innerHTML = schoolLevels.map(level => `<option value="${level}">${level}</option>`).join('');
-            planTypeSelect.innerHTML = planTypes.map(type => `<option value="${type === '직접 입력' ? 'custom' : type}">${type}</option>`).join('');
-        };
-
-        planTypeSelect.addEventListener('change', () => {
-            customPlanTypeWrapper.classList.toggle('hidden', planTypeSelect.value !== 'custom');
-        });
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const user = auth.currentUser;
-            if (!user) {
-                formError.textContent = '로그인 상태가 아닙니다. 다시 로그인해주세요.';
-                formError.classList.remove('hidden');
-                return;
-            }
+          const user = auth.currentUser;
+          if (!user) return;
         
-            formError.classList.add('hidden'); // 에러 메시지 초기화
+          const plansCollectionRef = collection(db, "users", user.uid, "plans");
+          const q = query(plansCollectionRef);
         
-            let planType = planTypeSelect.value;
-            if (planType === 'custom') {
-                planType = customPlanTypeInput.value.trim();
-                if (!planType) {
-                    formError.textContent = '계획서 종류를 직접 입력해주세요.';
-                    formError.classList.remove('hidden');
-                    return;
-                }
-            }
-        
-            initialMessage.classList.add('hidden');
-            generatedContentWrapper.classList.add('hidden');
-            errorMessageDiv.classList.add('hidden');
-            loadingIndicator.style.display = 'flex';
-            generateBtn.disabled = true;
-            generateBtn.innerHTML = `<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span class="ml-2">생성 중...</span>`;
-        
-            try {
-                const keywords = document.getElementById('keywords').value || '없음';
-                const includeBudget = includeBudgetCheckbox.checked;
-            
-                // Firebase 사용자 토큰 발급받기 → 백엔드 인증용
-                const idToken = await user.getIdToken();
-            
-                // 백엔드에 보낼 요청 바디 구성
-                const requestBody = {
-                    token: idToken,
-                    schoolLevel: schoolLevelSelect.value,
-                    planType,
-                    keywords,
-                    includeBudget,
-                };
-            
-                // 배포 환경에 맞게 반드시 수정 필요 (예: https://your-domain.com/generatePlan)
-                const backendUrl = 'http://localhost:8080/generatePlan';
-            
-                // 백엔드 API 호출
-                const response = await fetch(backendUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody),
-                });
-            
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'AI 생성에 실패했습니다.');
-                }
-            
-                const data = await response.json();
-                const rawText = data.planText;
-            
-                // AI 결과 화면에 표시
-                const finalTitle = displayContent(rawText, planType);
-            
-                // Firestore 저장은 백엔드가 책임지므로 프론트에서는 저장 코드 제거
-            
-                outputPanel.scrollIntoView({ behavior: 'smooth' });
-            } catch (error) {
-                console.error('AI 생성 오류:', error);
-                errorMessageDiv.classList.remove('hidden');
-                errorDetails.textContent = error.message || '알 수 없는 오류가 발생했습니다.';
-            } finally {
-                loadingIndicator.style.display = 'none';
-                generateBtn.disabled = false;
-                generateBtn.innerHTML = `<span>AI 운영계획서 생성</span>`;
-            }
-        });
-
-        function displayContent(rawText, defaultTitle) {
-            const lines = rawText.split('\n');
-            let html = '';
-            let title = defaultTitle;
-            let inTable = false;
-
-            lines.forEach(line => {
-                line = line.trim();
-                if (line.startsWith('TITLE:')) { title = line.replace('TITLE:', '').trim(); return; }
-                if (inTable && !line.includes('|')) { html += '</tbody></table>'; inTable = false; }
-                if (line.startsWith('### ')) { html += `<h2>${line.replace('### ', '')}</h2>`; }
-                else if (line.startsWith('* ')) { html += `<ul><li>${line.replace('* ', '')}</li></ul>`; }
-                else if (line.includes('|')) {
-                     if (!inTable) {
-                        html += '<table class="w-full border-collapse"><thead><tr class="bg-gray-100">';
-                        const headers = line.split('|').map(h => h.trim()).filter(Boolean);
-                        headers.forEach(header => html += `<th class="border p-2">${header}</th>`);
-                        html += '</tr></thead><tbody>';
-                        inTable = true;
-                    } else if (!line.includes('---')) {
-                        html += '<tr>';
-                        const cells = line.split('|').map(c => c.trim()).filter(Boolean);
-                        cells.forEach(cell => html += `<td class="border p-2">${cell}</td>`);
-                        html += '</tr>';
-                    }
-                } else if (line) { html += `<p>${line}</p>`; }
+          try {
+            const querySnapshot = await getDocs(q);
+            const plans = [];
+            querySnapshot.forEach(doc => {
+              plans.push({ id: doc.id, ...doc.data() });
             });
-            if (inTable) { html += '</tbody></table>'; }
-
-            planTitle.textContent = title;
-            generatedContentDiv.innerHTML = html.replace(/<\/ul>\s*<ul>/g, '');
-            generatedContentWrapper.classList.remove('hidden');
-            initialMessage.classList.add('hidden');
-            return title;
+        
+            plans.sort((a, b) => b.createdAt?.toMillis() - a.createdAt?.toMillis());
+        
+            updateStatsChart(plans);
+        
+            recentPlansList.innerHTML = '';
+            if (plans.length === 0) {
+              recentPlansList.innerHTML = `<p class="text-gray-500 text-center py-4">아직 생성된 계획서가 없습니다.</p>`;
+              return;
+            }
+        
+            const recent5Plans = plans.slice(0, 5);
+            recent5Plans.forEach(plan => {
+              const planElement = document.createElement('div');
+              planElement.className = 'p-4 border rounded-md hover:bg-gray-50 transition-colors flex justify-between items-center';
+              planElement.innerHTML = `
+                <div>
+                  <p class="font-semibold">${plan.title || '(제목없음)'}</p>
+                  <p class="text-sm text-gray-500">생성일: ${plan.createdAt ? new Date(plan.createdAt.toDate()).toLocaleDateString() : '-'}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button class="view-plan-btn text-sm font-medium text-blue-600 hover:underline" data-id="${plan.id}">보기</button>
+                  <button class="delete-plan-btn text-sm font-medium text-red-600 hover:underline" data-id="${plan.id}">삭제</button>
+                </div>
+              `;
+              recentPlansList.appendChild(planElement);
+            });
+        
+            // ‘보기’ 버튼 이벤트 추가
+            document.querySelectorAll('.view-plan-btn').forEach(button => {
+              button.onclick = async e => {
+                const user = auth.currentUser;
+                if (!user) return;
+                const id = e.target.dataset.id;
+                try {
+                  const docRef = doc(db, "users", user.uid, "plans", id);
+                  const docSnap = await getDoc(docRef);
+                  if (docSnap.exists()) {
+                    const plan = docSnap.data();
+                    switchView('generator');
+                    displayContent(plan.rawContent, plan.title);
+                    outputPanel.scrollIntoView({ behavior: 'smooth' });
+                  } else {
+                    alert('계획서를 불러오지 못했습니다.');
+                  }
+                } catch (error) {
+                  console.error('Error loading plan:', error);
+                  alert('계획서 불러오기 중 오류가 발생했습니다.');
+                }
+              };
+            });
+        
+            // ‘삭제’ 버튼 이벤트 추가
+            document.querySelectorAll('.delete-plan-btn').forEach(button => {
+              button.onclick = async e => {
+                const user = auth.currentUser;
+                if (!user) return;
+                if (!confirm('해당 계획서를 삭제하시겠습니까?')) return;
+                const id = e.target.dataset.id;
+                try {
+                  await deleteDoc(doc(db, "users", user.uid, "plans", id));
+                  await loadAndDisplayPlans();
+                } catch (error) {
+                  console.error('Error deleting plan:', error);
+                  alert('계획서 삭제 중 오류가 발생했습니다.');
+                }
+              };
+            });
+        
+          } catch (error) {
+            console.error("Error loading plans:", error);
+            recentPlansList.innerHTML = `<p class="text-red-500 text-center py-4">계획서 불러오기 실패: ${error.message}</p>`;
+            updateStatsChart([]);
+          }
+        };
+        
+        // -------------------------
+        // 계획서 조건 셀렉트 박스 초기화
+        // -------------------------
+        const populateSelects = () => {
+          const schoolLevels = ['초등학교', '중학교', '고등학교'];
+          const planTypes = [
+            '학교폭력 예방 교육 계획',
+            '진로 체험 활동 계획',
+            '디지털 리터러시 교육 계획',
+            '기초학력 향상 지원 계획',
+            '다문화 교육 활동 계획',
+            '직접 입력'
+          ];
+        
+          schoolLevelSelect.innerHTML = schoolLevels.map(level => `<option value="${level}">${level}</option>`).join('');
+          planTypeSelect.innerHTML = planTypes.map(type => `<option value="${type === '직접 입력' ? 'custom' : type}">${type}</option>`).join('');
+        };
+        
+        planTypeSelect.addEventListener('change', () => {
+          customPlanTypeWrapper.classList.toggle('hidden', planTypeSelect.value !== 'custom');
+        });
+        
+        // -------------------------
+        // AI 운영계획서 생성 (백엔드 호출)
+        // -------------------------
+        form.addEventListener('submit', async e => {
+          e.preventDefault();
+          const user = auth.currentUser;
+          if (!user) {
+            formError.textContent = '로그인 상태가 아닙니다. 다시 로그인해주세요.';
+            formError.classList.remove('hidden');
+            return;
+          }
+          formError.classList.add('hidden');
+      
+          let planType = planTypeSelect.value;
+          if (planType === 'custom') {
+            planType = customPlanTypeInput.value.trim();
+            if (!planType) {
+              formError.textContent = '계획서 종류를 직접 입력해주세요.';
+              formError.classList.remove('hidden');
+              return;
+            }
+          }
+      
+          initialMessage.classList.add('hidden');
+          generatedContentWrapper.classList.add('hidden');
+          errorMessageDiv.classList.add('hidden');
+          loadingIndicator.style.display = 'flex';
+          generateBtn.disabled = true;
+          generateBtn.innerHTML = `<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span class="ml-2">생성 중...</span>`;
+      
+          try {
+            const keywords = document.getElementById('keywords').value || '없음';
+            const includeBudget = includeBudgetCheckbox.checked;
+        
+            // Firebase ID 토큰 발급 (백엔드 인증용)
+            const idToken = await user.getIdToken();
+        
+            const requestBody = {
+              token: idToken,
+              schoolLevel: schoolLevelSelect.value,
+              planType,
+              keywords,
+              includeBudget,
+            };
+        
+            // 반드시 배포 맞게 수정 필요
+            const backendUrl = 'http://localhost:8080/generatePlan';
+        
+            const response = await fetch(backendUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(requestBody),
+            });
+        
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || 'AI 생성에 실패했습니다.');
+            }
+        
+            const data = await response.json();
+            const rawText = data.planText;
+        
+            const finalTitle = displayContent(rawText, planType);
+        
+            // Firestore 저장은 백엔드에서 하므로 클라이언트 쪽 추가 저장 코드 없음
+        
+            outputPanel.scrollIntoView({ behavior: 'smooth' });
+        
+            // 생성 후 목록 새로고침
+            loadAndDisplayPlans();
+        
+          } catch (error) {
+            console.error('AI 생성 오류:', error);
+            errorMessageDiv.classList.remove('hidden');
+            errorDetails.textContent = error.message || '알 수 없는 오류가 발생했습니다.';
+          } finally {
+            loadingIndicator.style.display = 'none';
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = `<span>AI 운영계획서 생성</span>`;
+          }
+        });
+        
+        // -------------------------
+        // AI 결과 내용 출력 함수
+        // -------------------------
+        function displayContent(rawText, defaultTitle) {
+          const lines = rawText.split('\n');
+          let html = '';
+          let title = defaultTitle;
+          let inTable = false;
+        
+          lines.forEach(line => {
+            line = line.trim();
+            if (line.startsWith('TITLE:')) {
+              title = line.replace('TITLE:', '').trim();
+              return;
+            }
+            if (inTable && !line.includes('|')) {
+              html += '</tbody></table>';
+              inTable = false;
+            }
+            if (line.startsWith('### ')) {
+              html += `<h2>${line.replace('### ', '')}</h2>`;
+            } else if (line.startsWith('* ')) {
+              html += `<ul><li>${line.replace('* ', '')}</li></ul>`;
+            } else if (line.includes('|')) {
+              if (!inTable) {
+                html += '<table class="w-full border-collapse"><thead><tr class="bg-gray-100">';
+                const headers = line.split('|').map(h => h.trim()).filter(Boolean);
+                headers.forEach(header => html += `<th class="border p-2">${header}</th>`);
+                html += '</tr></thead><tbody>';
+                inTable = true;
+              } else if (!line.includes('---')) {
+                html += '<tr>';
+                const cells = line.split('|').map(c => c.trim()).filter(Boolean);
+                cells.forEach(cell => html += `<td class="border p-2">${cell}</td>`);
+                html += '</tr>';
+              }
+            } else if (line) {
+              html += `<p>${line}</p>`;
+            }
+          });
+      
+          if (inTable) {
+            html += '</tbody></table>';
+          }
+      
+          planTitle.textContent = title;
+          generatedContentDiv.innerHTML = html.replace(/<\/ul>\s*<ul>/g, '');
+          generatedContentWrapper.classList.remove('hidden');
+          initialMessage.classList.add('hidden');
+          return title;
         }
         
+        // -------------------------
+        // 결과 복사 기능
+        // -------------------------
         copyBtn.addEventListener('click', async () => {
-            const htmlContent = generatedContentDiv.innerHTML;
-            try {
-                if (navigator.clipboard && window.ClipboardItem) {
-                    await navigator.clipboard.write([
-                        new ClipboardItem({ 'text/html': new Blob([htmlContent], { type: 'text/html' }) })
-                    ]);
-                } else {
-                    const textArea = document.createElement('textarea');
-                    textArea.value = htmlContent;
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textArea);
-                }
-                copyBtn.textContent = '복사 완료!';
-            } catch (err) {
-                console.error('클립보드 복사 실패:', err);
-                copyBtn.textContent = '복사 실패';
+          const htmlContent = generatedContentDiv.innerHTML;
+        
+          try {
+            if (navigator.clipboard && window.ClipboardItem) {
+              await navigator.clipboard.write([
+                new ClipboardItem({ 'text/html': new Blob([htmlContent], { type: 'text/html' }) })
+              ]);
+            } else {
+              const textArea = document.createElement('textarea');
+              textArea.value = htmlContent;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textArea);
             }
-            setTimeout(() => { copyBtn.textContent = '본문 복사'; }, 2000);
+            copyBtn.textContent = '복사 완료!';
+          } catch (err) {
+            console.error('클립보드 복사 실패:', err);
+            copyBtn.textContent = '복사 실패';
+          }
+          setTimeout(() => { copyBtn.textContent = '본문 복사'; }, 2000);
         });
-
-
-        // --- INITIALIZATION ---
+        
+        // -------------------------
+        // 초기화
+        // -------------------------
         populateSelects();
+
     </script>
 </body>
 </html>
