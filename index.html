@@ -442,6 +442,7 @@
             customPlanTypeWrapper.classList.toggle('hidden', planTypeSelect.value !== 'custom');
         });
 
+##기존엔 프론트엔드에서 Gemini API를 직접 호출했지만, 수정 후에는 백엔드의 /generatePlan 엔드포인트에 Firebase 인증토큰과 함께 요청하여 보안을 강화했습니다.
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const user = auth.currentUser;
